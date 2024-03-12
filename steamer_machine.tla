@@ -1,7 +1,7 @@
 ---- MODULE steamer_machine ----
 EXTENDS Integers
 
-VARIABLES water, temperature, button, power, work
+VARIABLES water, temperature, button, power
 
 CONSTANTS HomeTemparuture, BoilingTemparuture, TankCapacity
 
@@ -9,8 +9,7 @@ CONSTANTS HomeTemparuture, BoilingTemparuture, TankCapacity
 variables water = TankCapacity,
           temperature = HomeTemparuture,
           button = FALSE,
-          power = FALSE,
-          work = FALSE;
+          power = FALSE;
 
         
 define
@@ -22,20 +21,18 @@ define
     IsHomeTemp == temperature <= HomeTemparuture
     TankEmpty == water = 0
     TankFull == water = TankCapacity
-    IsWork == work = TRUE
-    IsOn == power = TRUE
 end define;
 
 
 macro inc_temparuture() begin
-    if (IsWork /\ ~IsBoiling) then
+    if (power /\ ~IsBoiling) then
         temperature := temperature + 10;
     end if;
 end macro;
 
 
 macro dec_temparuture() begin
-    if (~IsWork /\ ~IsHomeTemp) then
+    if (~power /\ ~IsHomeTemp) then
         temperature := temperature - 10;
     end if;
 end macro;
@@ -74,21 +71,17 @@ end process;
 
 
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "d4bb3c33" /\ chksum(tla) = "f5dcf622")
+\* BEGIN TRANSLATION (chksum(pcal) = "63a4858a" /\ chksum(tla) = "2016338b")
 VARIABLES pc
 
 (* define statement *)
-
-
 IsBoiling == temperature >= BoilingTemparuture
 IsHomeTemp == temperature <= HomeTemparuture
 TankEmpty == water = 0
 TankFull == water = TankCapacity
-IsWork == work = TRUE
-IsOn == power = TRUE
 
 
-vars == << water, temperature, button, power, work, pc >>
+vars == << water, temperature, button, power, pc >>
 
 ProcSet == {1} \cup {2}
 
@@ -97,7 +90,6 @@ Init == (* Global variables *)
         /\ temperature = HomeTemparuture
         /\ button = FALSE
         /\ power = FALSE
-        /\ work = FALSE
         /\ pc = [self \in ProcSet |-> CASE self = 1 -> "write_loop"
                                         [] self = 2 -> "Add_water_power_up"]
 
@@ -105,42 +97,42 @@ write_loop == /\ pc[1] = "write_loop"
               /\ IF power /\ ~TankEmpty
                     THEN /\ pc' = [pc EXCEPT ![1] = "heat_steamer"]
                     ELSE /\ pc' = [pc EXCEPT ![1] = "Done"]
-              /\ UNCHANGED << water, temperature, button, power, work >>
+              /\ UNCHANGED << water, temperature, button, power >>
 
 heat_steamer == /\ pc[1] = "heat_steamer"
-                /\ IF (IsWork /\ ~IsBoiling)
+                /\ IF (power /\ ~IsBoiling)
                       THEN /\ temperature' = temperature + 10
                       ELSE /\ TRUE
                            /\ UNCHANGED temperature
                 /\ pc' = [pc EXCEPT ![1] = "press_button"]
-                /\ UNCHANGED << water, button, power, work >>
+                /\ UNCHANGED << water, button, power >>
 
 press_button == /\ pc[1] = "press_button"
                 /\ button' = IsBoiling
                 /\ IF ~TankEmpty /\ button'
                       THEN /\ pc' = [pc EXCEPT ![1] = "generate_steam"]
                       ELSE /\ pc' = [pc EXCEPT ![1] = "empyt_tank"]
-                /\ UNCHANGED << water, temperature, power, work >>
+                /\ UNCHANGED << water, temperature, power >>
 
 generate_steam == /\ pc[1] = "generate_steam"
                   /\ water' = water - 10
-                  /\ IF (~IsWork /\ ~IsHomeTemp)
+                  /\ IF (~power /\ ~IsHomeTemp)
                         THEN /\ temperature' = temperature - 10
                         ELSE /\ TRUE
                              /\ UNCHANGED temperature
                   /\ pc' = [pc EXCEPT ![1] = "empyt_tank"]
-                  /\ UNCHANGED << button, power, work >>
+                  /\ UNCHANGED << button, power >>
 
 empyt_tank == /\ pc[1] = "empyt_tank"
               /\ IF TankEmpty
                     THEN /\ pc' = [pc EXCEPT ![1] = "power_down"]
                     ELSE /\ pc' = [pc EXCEPT ![1] = "write_loop"]
-              /\ UNCHANGED << water, temperature, button, power, work >>
+              /\ UNCHANGED << water, temperature, button, power >>
 
 power_down == /\ pc[1] = "power_down"
               /\ power' = FALSE
               /\ pc' = [pc EXCEPT ![1] = "write_loop"]
-              /\ UNCHANGED << water, temperature, button, work >>
+              /\ UNCHANGED << water, temperature, button >>
 
 Steamer == write_loop \/ heat_steamer \/ press_button \/ generate_steam
               \/ empyt_tank \/ power_down
@@ -152,7 +144,7 @@ Add_water_power_up == /\ pc[2] = "Add_water_power_up"
                             ELSE /\ TRUE
                                  /\ UNCHANGED << water, power >>
                       /\ pc' = [pc EXCEPT ![2] = "Done"]
-                      /\ UNCHANGED << temperature, button, work >>
+                      /\ UNCHANGED << temperature, button >>
 
 AddWater == Add_water_power_up
 
@@ -168,6 +160,5 @@ Spec == Init /\ [][Next]_vars
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION 
-
 
 =============================================================================
